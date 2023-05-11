@@ -1,0 +1,80 @@
+---
+description: Automate NewRelic Agent Installation on single AWS account
+schemaVersion: '2.2'
+parameters:
+  action:
+    type: String
+    description: "Install. Update, or Remove NewRelic Infrastructure Agent."
+    allowedValues:
+    - 'Install'
+    - 'Update'
+    - 'Remove'
+  licenseKey:
+    type: String
+    description: "(Required) NewRelic Infrastructure Key for Agent Installation"
+    default: ""
+  displayName:
+    type: String
+    description: "(Optional) Set display name for host to show it in NewRelic UI"
+    default: ""
+  logfile:
+    type: String
+    description: "(Optional) Provide the log path, to store logging of NewRelic Agent"
+    default: "/var/log/newrelic-infra/newrelic-infra.log"
+  loglevel:
+    type: String
+    description: "(Optional) Set the level of logs required to troubleshoot any NewRelic Agent issues"
+    allowedValues:
+    - 'debug'
+    - 'smart'
+    - 'info'
+    - 'trace'
+  size:
+    type: String
+    description: "(Optional) Set the size of log file in MB"
+    default: "1000"
+  maxfiles:
+    type: String
+    description: "(Optional) Set any value to contain maximum log files which are rotated"
+    default: "2"
+  enablecompression:
+    type: String
+    description: "(Optional) Default is False, if log file should be compressed, set to True"
+    default: "false"
+    allowedValues:
+    - 'true'
+    - 'false'
+  filepattern:
+    type: String
+    description: "(Optional) Set log file name pattern after it is rotated"
+    default: "YYYY-MM-DD_hh-mm-ss.log"
+mainSteps:
+  - name: LinuxInstallNewRelicInfrastructureAgent
+    action: aws:runShellScript
+    inputs:
+      runCommand: [
+        "#!/bin/bash",
+        "### Set Display name of the host",
+        "if [ '{{ displayName }}' != '' ]; then",
+        "echo \"display_name: {{displayName}}\" | sudo tee -a /etc/newrelic-infra.yml",
+        "fi",
+        "### Set logging format, to troubleshoot any issues in NewRelic Agent",
+        "if [ '{{ loglevel }}' != '' ]; then",
+        "echo  \"log: \n level: {{loglevel}} \n file: {{logfile}} \" | sudo tee -a /etc/newrelic-infra.yml",
+        "fi",
+        "### Configure log rotation for NewRelic Agent ",
+        "if [ '{{ size }}' != '' ]; then",
+        "echo  \"log: \n rotate: \n \ max_size_mb: {{size}} \n \ max_files: {{maxfiles}} \n \ compression_enabled: {{enablecompression}} \n \ file_pattern: {{loglevel}}-{{filepattern}} \" | sudo tee -a /etc/newrelic-infra.yml",
+        "fi",
+        "### Installation of NewRelic Infrastructure Agent",
+        "if [ '{{ action }}' == 'Install' ]; then",
+        "curl -Ls https://download.newrelic.com/install/newrelic-cli/scripts/install.sh | bash && sudo NEW_RELIC_API_KEY={{ licenseKey }} NEW_RELIC_ACCOUNT_ID=3772809 /usr/local/bin/newrelic install",
+        "fi",
+        "if [ '{{ action }}' == 'Update' ]; then",
+        "sudo apt-get update && sudo apt-get install --only-upgrade newrelic-infra -y",
+        "fi",
+        "if  [ '{{ action }}' == 'Remove' ]; then",
+        "apt-get remove newrelic-infra -y",
+        "sudo rm -rf /etc/newrelic-infra.yml",
+        "fi"
+        ]
